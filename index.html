@@ -1,0 +1,520 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>분리수거 도우미</title>
+
+  <!-- Teachable Machine 호환 라이브러리 -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.4/dist/teachablemachine-image.min.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, "Noto Sans KR", sans-serif;
+      background: #f4f7f4;
+      color: #25352b;
+    }
+
+    header {
+      height: 65px;
+      background: white;
+      border-bottom: 1px solid #e8eee9;
+      display: flex;
+      align-items: center;
+      padding: 0 22px;
+    }
+
+    .logo {
+      font-size: 20px;
+      font-weight: 800;
+      color: #23834b;
+    }
+
+    main {
+      width: 100%;
+      max-width: 520px;
+      margin: 40px auto;
+      padding: 0 18px;
+    }
+
+    .intro {
+      margin-bottom: 25px;
+    }
+
+    .intro h1 {
+      font-size: 27px;
+      margin: 0 0 10px;
+      letter-spacing: -1px;
+    }
+
+    .intro p {
+      color: #7a867d;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .card {
+      background: white;
+      padding: 22px;
+      border-radius: 17px;
+      box-shadow: 0 5px 20px rgba(30, 60, 40, 0.05);
+    }
+
+    .upload-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 14px;
+    }
+
+    .upload-area {
+      min-height: 220px;
+      border: 1.5px dashed #b8d6c0;
+      background: #f8fbf8;
+      border-radius: 13px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    .upload-icon {
+      font-size: 38px;
+      margin-bottom: 12px;
+    }
+
+    .upload-text {
+      color: #718077;
+      font-size: 13px;
+      margin-bottom: 15px;
+    }
+
+    .choose-button {
+      display: inline-block;
+      background: white;
+      color: #23834b;
+      border: 1px solid #23834b;
+      padding: 10px 19px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    #imageInput {
+      display: none;
+    }
+
+    #preview {
+      display: none;
+      width: 100%;
+      max-height: 300px;
+      object-fit: contain;
+      border-radius: 9px;
+    }
+
+    .analyze-button {
+      width: 100%;
+      margin-top: 17px;
+      padding: 16px;
+      border: none;
+      border-radius: 10px;
+      background: #23834b;
+      color: white;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .analyze-button:disabled {
+      background: #b9c7bd;
+      cursor: not-allowed;
+    }
+
+    #status {
+      text-align: center;
+      color: #89948c;
+      font-size: 12px;
+      line-height: 1.6;
+      margin-top: 16px;
+      overflow-wrap: anywhere;
+    }
+
+    #result {
+      display: none;
+      margin-top: 20px;
+      background: white;
+      border-radius: 17px;
+      padding: 23px;
+      box-shadow: 0 5px 20px rgba(30, 60, 40, 0.05);
+    }
+
+    .result-label {
+      color: #23834b;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    #resultTitle {
+      font-size: 23px;
+      font-weight: 800;
+      margin: 0 0 12px;
+    }
+
+    #resultMessage {
+      font-size: 14px;
+      line-height: 1.8;
+      color: #59665d;
+      margin: 0;
+      white-space: pre-line;
+    }
+
+    #confidence {
+      margin-top: 17px;
+      padding-top: 13px;
+      border-top: 1px solid #edf0ed;
+      color: #929b94;
+      font-size: 12px;
+    }
+
+    footer {
+      text-align: center;
+      color: #a0aaa2;
+      font-size: 11px;
+      margin-top: 25px;
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <div class="logo">♻ 분리수거 도우미</div>
+</header>
+
+<main>
+
+  <section class="intro">
+    <h1>올바른 분리수거,<br>AI와 함께 시작해요!</h1>
+    <p>
+      쓰레기 사진을 업로드하면 AI가 종류를 분석하고<br>
+      올바른 분리수거 방법을 알려드립니다.
+    </p>
+  </section>
+
+  <section class="card">
+
+    <div class="upload-title">쓰레기 사진 업로드</div>
+
+    <div class="upload-area">
+
+      <div class="upload-icon" id="uploadIcon">📷</div>
+
+      <div class="upload-text" id="uploadText">
+        분석할 쓰레기 사진을 선택해 주세요.
+      </div>
+
+      <label for="imageInput" class="choose-button">
+        사진 선택하기
+      </label>
+
+      <input
+        type="file"
+        id="imageInput"
+        accept="image/*"
+      >
+
+      <img id="preview" alt="업로드한 쓰레기 사진">
+
+    </div>
+
+    <button class="analyze-button" id="analyzeButton" disabled>
+      이미지 분석하기
+    </button>
+
+    <div id="status">AI 모델을 불러오는 중입니다.</div>
+
+  </section>
+
+  <section id="result">
+
+    <div class="result-label">AI 분석 결과</div>
+
+    <h2 id="resultTitle"></h2>
+
+    <p id="resultMessage"></p>
+
+    <div id="confidence"></div>
+
+  </section>
+
+  <footer>
+    AI 이미지 인식 기반 분리수거 안내 서비스
+  </footer>
+
+</main>
+
+<script>
+  // 제공받은 AI 모델 주소
+  const MODEL_URL =
+    "https://teachablemachine.withgoogle.com/models/0D7Dp_aCY/";
+
+  let model = null;
+  let selectedImage = null;
+  let isAnalyzing = false;
+
+  const imageInput = document.getElementById("imageInput");
+  const preview = document.getElementById("preview");
+  const analyzeButton = document.getElementById("analyzeButton");
+  const statusText = document.getElementById("status");
+  const result = document.getElementById("result");
+
+  // 분리수거 안내
+  const sortingGuide = {
+    paper: {
+      name: "종이",
+      message:
+        "종이류 분리수거함에 버려 주세요.\n이물질이 묻은 부분은 제거하고 펼쳐서 배출해 주세요."
+    },
+
+    can: {
+      name: "캔",
+      message:
+        "캔류 분리수거함에 버려 주세요.\n내용물을 비우고 가능한 한 깨끗하게 배출해 주세요."
+    },
+
+    plastic: {
+      name: "플라스틱",
+      message:
+        "플라스틱 분리수거함에 버려 주세요.\n내용물을 비우고 라벨 등 다른 재질은 분리해 주세요."
+    }
+  };
+
+  // AI 클래스 이름을 분리수거 종류로 변환
+  function getCategory(label) {
+    const name = label.trim().toLowerCase();
+
+    if (
+      name === "a" ||
+      name.includes("paper") ||
+      name.includes("종이")
+    ) {
+      return "paper";
+    }
+
+    if (
+      name === "b" ||
+      name.includes("can") ||
+      name.includes("캔") ||
+      name.includes("금속")
+    ) {
+      return "can";
+    }
+
+    if (
+      name === "c" ||
+      name.includes("plastic") ||
+      name.includes("플라스틱")
+    ) {
+      return "plastic";
+    }
+
+    return null;
+  }
+
+  // AI 모델 불러오기
+  async function loadModel() {
+    try {
+      statusText.textContent = "AI 모델을 불러오는 중입니다.";
+
+      if (typeof tf === "undefined") {
+        throw new Error("TensorFlow.js를 불러오지 못했습니다.");
+      }
+
+      if (typeof tmImage === "undefined") {
+        throw new Error("Teachable Machine 라이브러리를 불러오지 못했습니다.");
+      }
+
+      await tf.ready();
+
+      model = await tmImage.load(
+        MODEL_URL + "model.json",
+        MODEL_URL + "metadata.json"
+      );
+
+      statusText.textContent = "사진을 선택해 주세요.";
+      analyzeButton.disabled = !selectedImage;
+
+      console.log("AI 모델 로딩 성공");
+      console.log("클래스 개수:", model.getTotalClasses());
+
+    } catch (error) {
+      console.error("모델 로딩 오류:", error);
+
+      statusText.textContent =
+        "모델 로딩 오류: " + error.message;
+    }
+  }
+
+  // 이미지 업로드
+  imageInput.addEventListener("change", function(event) {
+    const file = event.target.files[0];
+
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      statusText.textContent = "이미지 파일을 선택해 주세요.";
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onerror = function() {
+      statusText.textContent = "이미지 파일을 읽지 못했습니다.";
+    };
+
+    reader.onload = function(e) {
+      const image = new Image();
+
+      image.onload = function() {
+        selectedImage = image;
+
+        preview.src = e.target.result;
+        preview.style.display = "block";
+
+        document.getElementById("uploadIcon").style.display = "none";
+
+        document.getElementById("uploadText").textContent =
+          "선택한 사진을 확인해 주세요.";
+
+        result.style.display = "none";
+
+        analyzeButton.disabled = !model;
+
+        statusText.textContent = model
+          ? "분석할 준비가 완료되었습니다."
+          : "AI 모델을 불러오는 중입니다.";
+      };
+
+      image.onerror = function() {
+        statusText.textContent = "이미지를 표시할 수 없습니다.";
+      };
+
+      image.src = e.target.result;
+    };
+
+    reader.readAsDataURL(file);
+  });
+
+  // 이미지 분석
+  analyzeButton.addEventListener("click", async function() {
+
+    if (!model || !selectedImage || isAnalyzing) return;
+
+    isAnalyzing = true;
+    analyzeButton.disabled = true;
+    analyzeButton.textContent = "분석 중...";
+    statusText.textContent = "AI가 사진을 분석하고 있습니다.";
+    result.style.display = "none";
+
+    try {
+
+      // 이미지 크기 확인
+      if (
+        !selectedImage.complete ||
+        selectedImage.naturalWidth === 0 ||
+        selectedImage.naturalHeight === 0
+      ) {
+        throw new Error("이미지가 정상적으로 준비되지 않았습니다.");
+      }
+
+      console.log("분석 이미지:", selectedImage);
+      console.log("AI 모델:", model);
+
+      // AI 이미지 분석
+      const predictions = await model.predict(selectedImage);
+
+      console.log("AI 분석 결과:", predictions);
+
+      if (!predictions || predictions.length === 0) {
+        throw new Error("AI 분석 결과가 비어 있습니다.");
+      }
+
+      // 가장 높은 확률의 클래스 찾기
+      const best = predictions.reduce((a, b) =>
+        a.probability > b.probability ? a : b
+      );
+
+      const category = getCategory(best.className);
+      const percent = (best.probability * 100).toFixed(1);
+
+      result.style.display = "block";
+
+      if (best.probability < 0.8) {
+
+        document.getElementById("resultTitle").textContent =
+          "정확하게 인식하지 못했어요.";
+
+        document.getElementById("resultMessage").textContent =
+          "사진을 더 선명하게 촬영한 뒤 다시 분석해 주세요.";
+
+      } else if (category && sortingGuide[category]) {
+
+        const guide = sortingGuide[category];
+
+        document.getElementById("resultTitle").textContent =
+          guide.name + "으로 인식했어요!";
+
+        document.getElementById("resultMessage").textContent =
+          guide.message;
+
+      } else {
+
+        document.getElementById("resultTitle").textContent =
+          "새로운 종류가 인식되었어요.";
+
+        document.getElementById("resultMessage").textContent =
+          "인식된 클래스 이름: " + best.className +
+          "\n아직 이 종류의 분리수거 안내가 설정되지 않았습니다.";
+
+      }
+
+      document.getElementById("confidence").textContent =
+        "AI 인식 신뢰도: " + percent + "%";
+
+      statusText.textContent = "분석이 완료되었습니다.";
+
+    } catch (error) {
+
+      console.error("이미지 분석 오류:", error);
+
+      statusText.textContent =
+        "분석 오류: " + (error.message || String(error));
+
+    } finally {
+
+      isAnalyzing = false;
+      analyzeButton.disabled = !model || !selectedImage;
+      analyzeButton.textContent = "이미지 분석하기";
+
+    }
+
+  });
+
+  // 앱 시작
+  loadModel();
+
+</script>
+
+</body>
+</html>
